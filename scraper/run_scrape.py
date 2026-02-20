@@ -40,6 +40,41 @@ from deal_hunter_scraper import (
     build_search_urls_with_filters,
 )
 
+
+def fetch_criteria_from_api(app_url: str) -> dict | None:
+    """Fetch deal criteria from the web app's API, if available."""
+    base = app_url.rstrip("/").replace("http://", "https://")
+    url = f"{base}/api/criteria"
+    try:
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            if "ev_min" in data:
+                return data
+    except Exception as e:
+        print(f"Could not fetch criteria from API: {e}", file=sys.stderr)
+    return None
+
+
+def apply_api_criteria(api_criteria: dict) -> None:
+    """Override the in-memory CRITERIA dict with values from the API."""
+    CRITERIA["ev_min"] = api_criteria.get("ev_min", CRITERIA["ev_min"])
+    CRITERIA["ev_max"] = api_criteria.get("ev_max", CRITERIA["ev_max"])
+    CRITERIA["revenue_min"] = api_criteria.get("revenue_min", CRITERIA["revenue_min"])
+    CRITERIA["revenue_max"] = api_criteria.get("revenue_max", CRITERIA["revenue_max"])
+    CRITERIA["ebitda_min"] = api_criteria.get("ebitda_min", CRITERIA["ebitda_min"])
+    CRITERIA["max_multiple"] = api_criteria.get("max_multiple", CRITERIA["max_multiple"])
+    CRITERIA["geography"] = api_criteria.get("geography", CRITERIA["geography"])
+
+    if api_criteria.get("preferred_traits"):
+        CRITERIA["preferred_traits"] = api_criteria["preferred_traits"]
+    if api_criteria.get("avoid_traits"):
+        CRITERIA["avoid_traits"] = api_criteria["avoid_traits"]
+    if api_criteria.get("target_industries"):
+        CRITERIA["target_industries"] = api_criteria["target_industries"]
+    if api_criteria.get("search_keywords"):
+        CRITERIA["search_keywords"] = api_criteria["search_keywords"]
+
 SOURCES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sources.json")
 
 HTTP_HEADERS = {
@@ -409,6 +444,21 @@ def main():
 
     print(f"Deal Hunter Scraper — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Target: {app_url}")
+    print()
+
+    # --- Fetch criteria from the web app ---
+    print("--- Fetching Deal Criteria ---")
+    api_criteria = fetch_criteria_from_api(app_url)
+    if api_criteria:
+        apply_api_criteria(api_criteria)
+        print(f"Loaded criteria from API (updated {api_criteria.get('updated_at', 'unknown')})")
+        print(f"  EV range: ${CRITERIA['ev_min']:,.0f} - ${CRITERIA['ev_max']:,.0f}")
+        print(f"  EBITDA min: ${CRITERIA['ebitda_min']:,.0f}")
+        print(f"  Max multiple: {CRITERIA['max_multiple']}x")
+        print(f"  Target industries: {len(CRITERIA['target_industries'])}")
+        print(f"  Search keywords: {len(CRITERIA['search_keywords'])}")
+    else:
+        print("Using default criteria (API not available)")
     print()
 
     all_raw_listings = []

@@ -55,6 +55,23 @@ export async function initSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_deals_score ON deals (score DESC);`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_deals_url ON deals (url) WHERE url != '';`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS criteria (
+      id SERIAL PRIMARY KEY,
+      ev_min DOUBLE PRECISION NOT NULL DEFAULT 1000000,
+      ev_max DOUBLE PRECISION NOT NULL DEFAULT 5000000,
+      revenue_min DOUBLE PRECISION NOT NULL DEFAULT 2000000,
+      revenue_max DOUBLE PRECISION NOT NULL DEFAULT 15000000,
+      ebitda_min DOUBLE PRECISION NOT NULL DEFAULT 300000,
+      max_multiple DOUBLE PRECISION NOT NULL DEFAULT 4.0,
+      geography TEXT NOT NULL DEFAULT 'United States',
+      preferred_traits TEXT[] NOT NULL DEFAULT '{recurring_revenue,regulatory_moat,labor_accessible,high_switching_costs,non_cyclical,unglamorous,essential_service}',
+      avoid_traits TEXT[] NOT NULL DEFAULT '{commodity_exposure,cyclical_demand,specialized_labor_required,asset_light_digital,construction_tied}',
+      target_industries TEXT[] NOT NULL DEFAULT '{Water Treatment,Fire Protection,Elevator Maintenance,Environmental Remediation,Commercial Laundry,Meat Processing,Produce Packing,Fresh-Cut Vegetables,Hide/Leather Tanning,Pallet Recycling,Textile Recycling,Seafood Processing,Contract Packaging,Industrial Parts Cleaning,Janitorial Services,Industrial Refrigeration,Demolition & Salvage}',
+      search_keywords TEXT[] NOT NULL DEFAULT '{laundry,fire sprinkler,fire protection,elevator,remediation,abatement,water treatment,meat processing,produce,fresh cut,seafood,fish processing,pallet,textile,recycling,packaging,co-packing,industrial cleaning,parts cleaning,degreasing,janitorial,commercial cleaning,refrigeration,tanning,hide,leather processing,demolition,environmental services}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
 }
 
 export type Deal = {
@@ -80,6 +97,22 @@ export type Deal = {
   listing_id: string;
   category: string;
   created_at: string;
+};
+
+export type Criteria = {
+  id: number;
+  ev_min: number;
+  ev_max: number;
+  revenue_min: number;
+  revenue_max: number;
+  ebitda_min: number;
+  max_multiple: number;
+  geography: string;
+  preferred_traits: string[];
+  avoid_traits: string[];
+  target_industries: string[];
+  search_keywords: string[];
+  updated_at: string;
 };
 
 export type Source = {
