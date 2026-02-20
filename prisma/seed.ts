@@ -165,10 +165,16 @@ const SCRAPER_SOURCES = [
   { name: "FCBB", url: "https://fcbb.com/businesses-for-sale", priority: "P1", sourceType: "broker", region: "National", requiresJs: true },
   { name: "BizEx", url: "https://bizex.net/business-for-sale", priority: "P1", sourceType: "broker", region: "Southern CA" },
   { name: "DealForce", url: "https://dealforce.com/opportunities/", priority: "P1", sourceType: "broker", region: "National", requiresJs: true },
+  { name: "Discount Businesses", url: "https://discountbusinesses.com/", priority: "P1", sourceType: "broker", region: "Varies" },
+  { name: "VR Dallas", url: "https://vrdallas.com/businesses-for-sale/", priority: "P1", sourceType: "broker", region: "Texas/DFW" },
+  { name: "Gill Agency", url: "https://gillagency.co/business-acquisitions/", priority: "P1", sourceType: "broker", region: "Varies" },
   { name: "Calder Group", url: "https://caldergr.com/businesses-for-sale/", priority: "P1", sourceType: "broker", region: "National" },
   { name: "Exit Equity", url: "https://exitequity.com/listing_status/current/", priority: "P1", sourceType: "broker", region: "Varies" },
+  { name: "Inbar Group", url: "https://inbargroup.com/businesses-for-sale/", priority: "P1", sourceType: "broker", region: "Varies" },
+  { name: "Lisiten Associates", url: "https://lisitenassociates.com/exclusive-listings/businesses-and-corporations/", priority: "P1", sourceType: "broker", region: "Varies" },
   { name: "KC Apex", url: "https://kcapex.com/listings/?status=active", priority: "P1", sourceType: "broker", region: "Kansas City" },
   { name: "Results Business Advisors", url: "https://resultsba.com/omaha-business-listings/?statuses=ACTIVE", priority: "P1", sourceType: "broker", region: "Omaha/Midwest" },
+  { name: "First Street Business Brokers", url: "https://firststreetbusinessbrokers.com/opportunities/", priority: "P1", sourceType: "broker", region: "Varies" },
 ];
 
 async function seed() {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { DealPipeline } from "@/components/DealPipeline";
+import { RunScraperButton } from "@/components/RunScraperButton";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ export default async function HomePage({
           </p>
         </div>
         <div className="flex gap-2">
+          <RunScraperButton />
           <a
             href="/api/export"
             className="px-4 py-2 text-sm bg-brand-card border border-brand-border rounded-lg text-gray-300 hover:text-white hover:border-brand-gold transition-colors"
