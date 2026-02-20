@@ -21,9 +21,21 @@ export async function POST(req: NextRequest) {
 
     let inserted = 0;
     let skipped = 0;
+    let filtered = 0;
 
     for (const d of deals) {
       try {
+        // Filter out deals without revenue data — no revenue means not actionable.
+        // Accept revenue directly, or common proxies the scraper may provide
+        // (gross_sales, annual_sales, net_sales). All get mapped into the revenue column.
+        const rev = d.revenue ?? d.gross_sales ?? d.annual_sales ?? d.net_sales ?? null;
+        if (rev == null || Number(rev) <= 0) {
+          filtered++;
+          continue;
+        }
+        // Normalise: if the scraper sent a proxy field, store it as revenue
+        if (d.revenue == null) d.revenue = rev;
+
         const traits = Array.isArray(d.traits) ? d.traits : [];
         const avoidTraits = Array.isArray(d.avoid_traits) ? d.avoid_traits : [];
 
@@ -79,6 +91,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       inserted,
       skipped,
+      filtered,
       total: deals.length,
     });
   } catch (e: unknown) {

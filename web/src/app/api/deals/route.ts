@@ -15,6 +15,7 @@ export async function GET() {
         source, industry, date_found, traits, avoid_traits,
         score, multiple, broker, listing_id, category, created_at
       FROM deals
+      WHERE revenue IS NOT NULL AND revenue > 0
       ORDER BY score DESC
       LIMIT 200
     `;
