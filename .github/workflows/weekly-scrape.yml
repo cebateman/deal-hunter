@@ -1,0 +1,48 @@
+name: Weekly Deal Scrape
+
+on:
+  schedule:
+    # Monday 6:00 AM ET = 10:00 UTC (11:00 UTC during DST)
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+    inputs:
+      send_digest:
+        description: 'Send weekly digest email'
+        required: false
+        default: 'true'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Python dependencies
+        run: pip install -r scraper/requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run scraper
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SCRAPE_API_SECRET: ${{ secrets.SCRAPE_API_SECRET }}
+        run: |
+          SEND_FLAG=""
+          if [ "${{ github.event.inputs.send_digest || 'true' }}" = "true" ]; then
+            SEND_FLAG="--send-digest"
+          fi
+          python scraper/run_scrape.py $SEND_FLAG

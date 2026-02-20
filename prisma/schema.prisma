@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Deal {
+  id             String     @id @default(cuid())
+  title          String
+  url            String     @default("")
+  source         String     @default("BizBuySell")
+  listingId      String     @default("")
+  industry       String     @default("Other")
+  location       String     @default("")
+  askingPrice    Float?
+  revenue        Float?
+  ebitda         Float?
+  cashFlowSde    Float?
+  multiple       Float?
+  yearEstablished Int?
+  employees      Int?
+  description    String     @default("")
+  traits         String     @default("[]") // JSON array
+  avoidTraits    String     @default("[]") // JSON array
+  score          Int        @default(0)
+  dateFound      DateTime   @default(now())
+  dateUpdated    DateTime   @updatedAt
+  status         String     @default("new") // new, reviewed, archived
+  brokerName     String     @default("")
+  brokerContact  String     @default("")
+  category       String     @default("")
+  rawHtml        String     @default("")
+  dedupHash      String     @default("")
+
+  feedback       Feedback[]
+
+  @@index([score])
+  @@index([industry])
+  @@index([status])
+  @@index([dateFound])
+  @@index([dedupHash])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  rating    String   // pass, maybe, interested, strong_interest
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@index([rating])
+}
+
+model ProprietaryLead {
+  id                String   @id @default(cuid())
+  companyName       String
+  industry          String   @default("Other")
+  address           String   @default("")
+  city              String   @default("")
+  state             String   @default("")
+  phone             String   @default("")
+  website           String   @default("")
+  estimatedRevenue  String   @default("")
+  estimatedEmployees Int?
+  dataSource        String   @default("")
+  ownerName         String   @default("")
+  yearIncorporated  Int?
+  notes             String   @default("")
+  status            String   @default("new") // new, contacted, responded, pass
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([industry])
+  @@index([status])
+  @@index([state])
+}
+
+model WeeklyDigest {
+  id        String   @id @default(cuid())
+  weekDate  DateTime
+  dealCount Int      @default(0)
+  avgScore  Float    @default(0)
+  topScore  Int      @default(0)
+  sentAt    DateTime?
+  emailHtml String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model ScraperSource {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  priority    String   @default("P1") // P0, P1, P2
+  sourceType  String   @default("marketplace") // marketplace, broker
+  selectors   String   @default("{}") // JSON config for CSS selectors
+  requiresJs  Boolean  @default(false)
+  requiresLogin Boolean @default(false)
+  region      String   @default("")
+  notes       String   @default("")
+  enabled     Boolean  @default(true)
+  lastScraped DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([priority])
+  @@index([enabled])
+}
