@@ -1,0 +1,215 @@
+{
+  "marketplaces": [
+    {
+      "name": "BizBuySell",
+      "url": "https://www.bizbuysell.com",
+      "priority": "P0",
+      "categories": [
+        "service-businesses",
+        "manufacturing-businesses",
+        "wholesale-and-distributor-businesses"
+      ],
+      "selectors": {
+        "listing_card": ".listing, .search-result, [class*='listing']",
+        "title": "a.diamond-header, h3 a, .listing-title a, a[href*='business-opportunity']",
+        "price": ".asking-price, [class*='price']",
+        "location": ".listing-location, .location",
+        "description": ".listing-description, .listing-text, p",
+        "revenue": "",
+        "cash_flow": ""
+      },
+      "requires_js": true,
+      "requires_login": false
+    },
+    {
+      "name": "BizQuest",
+      "url": "https://www.bizquest.com",
+      "priority": "P1",
+      "categories": [],
+      "selectors": {},
+      "requires_js": true,
+      "requires_login": false
+    },
+    {
+      "name": "DealStream",
+      "url": "https://www.dealstream.com",
+      "priority": "P1",
+      "categories": [],
+      "selectors": {},
+      "requires_js": true,
+      "requires_login": true
+    },
+    {
+      "name": "BusinessesForSale",
+      "url": "https://www.businessesforsale.com",
+      "priority": "P2",
+      "categories": [],
+      "selectors": {},
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "LoopNet",
+      "url": "https://www.loopnet.com",
+      "priority": "P2",
+      "categories": [],
+      "selectors": {},
+      "requires_js": true,
+      "requires_login": false
+    }
+  ],
+  "brokers": [
+    {
+      "name": "The Transition Group",
+      "url": "https://thetransitiongroup.biz/businesses-for-sale/",
+      "priority": "P1",
+      "region": "Oregon/PNW",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "BSales Group",
+      "url": "https://bsalesgroup.com/mergers-and-acquisitions-businesses-for-sale",
+      "priority": "P1",
+      "region": "National",
+      "requires_js": false,
+      "requires_login": true
+    },
+    {
+      "name": "PGP Advisory",
+      "url": "https://pgpadvisory.com/businesses-for-sale/",
+      "priority": "P1",
+      "region": "National",
+      "requires_js": false,
+      "requires_login": true
+    },
+    {
+      "name": "PBS Brokers",
+      "url": "https://pbsbrokers.com/businesses/?_sft_status=for-sale,escrow,in-contract",
+      "priority": "P1",
+      "region": "West Coast",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Bristol Group",
+      "url": "https://bristolgrouponline.com/buy-a-business/",
+      "priority": "P1",
+      "region": "Southeast",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "FCBB (First Choice)",
+      "url": "https://fcbb.com/businesses-for-sale",
+      "priority": "P1",
+      "region": "National",
+      "requires_js": true,
+      "requires_login": false
+    },
+    {
+      "name": "BizEx",
+      "url": "https://bizex.net/business-for-sale",
+      "priority": "P1",
+      "region": "Southern CA",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "DealForce",
+      "url": "https://dealforce.com/opportunities/",
+      "priority": "P1",
+      "region": "National",
+      "requires_js": true,
+      "requires_login": false
+    },
+    {
+      "name": "Discount Businesses",
+      "url": "https://discountbusinesses.com/",
+      "priority": "P1",
+      "region": "Varies",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "VR Dallas",
+      "url": "https://vrdallas.com/businesses-for-sale/",
+      "priority": "P1",
+      "region": "Texas/DFW",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Gill Agency",
+      "url": "https://gillagency.co/business-acquisitions/",
+      "priority": "P1",
+      "region": "Varies",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Calder Group",
+      "url": "https://caldergr.com/businesses-for-sale/",
+      "priority": "P1",
+      "region": "National",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Calder Group (Coming Soon)",
+      "url": "https://caldergr.com/company-profile/coming-soon/",
+      "priority": "P2",
+      "region": "National",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Exit Equity",
+      "url": "https://exitequity.com/listing_status/current/",
+      "priority": "P1",
+      "region": "Varies",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Inbar Group",
+      "url": "https://inbargroup.com/businesses-for-sale/",
+      "priority": "P1",
+      "region": "Varies",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Lisiten Associates",
+      "url": "https://lisitenassociates.com/exclusive-listings/businesses-and-corporations/",
+      "priority": "P1",
+      "region": "Varies",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "KC Apex",
+      "url": "https://kcapex.com/listings/?status=active",
+      "priority": "P1",
+      "region": "Kansas City",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "Results Business Advisors",
+      "url": "https://resultsba.com/omaha-business-listings/?statuses=ACTIVE",
+      "priority": "P1",
+      "region": "Omaha/Midwest",
+      "requires_js": false,
+      "requires_login": false
+    },
+    {
+      "name": "First Street Business Brokers",
+      "url": "https://firststreetbusinessbrokers.com/opportunities/",
+      "priority": "P1",
+      "region": "Varies",
+      "requires_js": false,
+      "requires_login": false
+    }
+  ]
+}
