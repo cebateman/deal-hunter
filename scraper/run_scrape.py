@@ -380,24 +380,17 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
 
 def post_deals_to_api(deals: list[dict], app_url: str, api_secret: str, send_digest: bool = False) -> dict:
     """POST scraped deals to the Deal Hunter API."""
-    import urllib.request
-
-    payload = json.dumps({
+    url = f"{app_url.rstrip('/')}/api/scrape"
+    payload = {
         "deals": deals,
         "send_digest": send_digest,
         "api_secret": api_secret,
-    }).encode()
-
-    req = urllib.request.Request(
-        f"{app_url}/api/scrape",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    }
 
     try:
-        with urllib.request.urlopen(req, timeout=60) as response:
-            return json.loads(response.read().decode())
+        resp = requests.post(url, json=payload, timeout=60, allow_redirects=True)
+        resp.raise_for_status()
+        return resp.json()
     except Exception as e:
         print(f"API error: {e}", file=sys.stderr)
         return {"error": str(e)}
