@@ -290,6 +290,36 @@ def scrape_all_brokers() -> list[dict]:
     return all_listings
 
 
+def _extract_financials_from_text(deal: Deal, text: str) -> None:
+    """Try to pull financial figures from plain text when HTML parsing missed them."""
+    from deal_hunter_scraper import parse_money as _pm
+
+    if not deal.asking_price:
+        m = re.search(r"(?:asking|price|listed)[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.asking_price = _pm(m.group(1))
+        else:
+            # Grab the first dollar amount as a rough asking price
+            m = re.search(r"\$([\d,]{6,}(?:\.\d+)?)", text)
+            if m:
+                deal.asking_price = _pm(m.group(1))
+
+    if not deal.revenue:
+        m = re.search(r"(?:revenue|gross)[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.revenue = _pm(m.group(1))
+
+    if not deal.ebitda:
+        m = re.search(r"EBITDA[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.ebitda = _pm(m.group(1))
+
+    if not deal.cash_flow_sde:
+        m = re.search(r"(?:cash\s*flow|SDE|seller.?s?\s+discretionary)[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.cash_flow_sde = _pm(m.group(1))
+
+
 def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
     """Process raw scraper output into Deal objects ready for the API."""
     deals = []
@@ -297,7 +327,18 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
     for raw in raw_listings:
         try:
             deal = parse_listing_card(raw.get("html", ""), "")
-            if not deal or not deal.title:
+            if not deal:
+                deal = Deal()
+
+            # Fall back to raw scraped data when parse_listing_card couldn't
+            # extract fields (common for broker sites whose HTML doesn't match
+            # BizBuySell selectors).
+            if not deal.title and raw.get("title"):
+                deal.title = raw["title"]
+            if not deal.description and raw.get("text"):
+                deal.description = raw["text"][:500]
+
+            if not deal.title:
                 continue
 
             # Override with direct data if available
@@ -312,6 +353,12 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
                 else:
                     deal.url = href
 
+            # Try to extract financials from the raw card text when the HTML
+            # parser missed them (broker sites use varied formats).
+            if raw.get("text"):
+                _extract_financials_from_text(deal, raw["text"])
+
+            deal.date_found = deal.date_found or datetime.now().strftime("%Y-%m-%d")
             deal = process_deal(deal)
 
             if not passes_financial_filters(deal):
