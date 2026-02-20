@@ -380,7 +380,9 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
 
 def post_deals_to_api(deals: list[dict], app_url: str, api_secret: str, send_digest: bool = False) -> dict:
     """POST scraped deals to the Deal Hunter API."""
-    url = f"{app_url.rstrip('/')}/api/scrape"
+    # Ensure HTTPS to avoid 301 redirects that downgrade POST → GET (→ 405)
+    base = app_url.rstrip("/").replace("http://", "https://")
+    url = f"{base}/api/scrape"
     payload = {
         "deals": deals,
         "send_digest": send_digest,
