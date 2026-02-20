@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Deal Hunter — Scraper Runner
-Runs the BizBuySell scraper, processes results, and POSTs deals to the API.
+Scrapes BizBuySell + broker sites, processes results, and POSTs deals to the API.
 Designed to be called from GitHub Actions or manually.
 
 Usage:
@@ -23,7 +23,10 @@ import re
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Optional
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
+
+import requests
+from bs4 import BeautifulSoup
 
 # Add parent dir to path so we can import the scraper module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,6 +39,14 @@ from deal_hunter_scraper import (
     passes_financial_filters,
     build_search_urls_with_filters,
 )
+
+SOURCES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sources.json")
+
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 def scrape_with_playwright(urls: list[str]) -> list[dict]:
@@ -171,6 +182,114 @@ const {{ chromium }} = require('playwright');
     return []
 
 
+def load_broker_sources() -> list[dict]:
+    """Load broker sites from sources.json that don't require JS or login."""
+    try:
+        with open(SOURCES_FILE) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Could not load sources.json: {e}", file=sys.stderr)
+        return []
+
+    brokers = []
+    for broker in data.get("brokers", []):
+        if broker.get("requires_login"):
+            continue
+        brokers.append(broker)
+    return brokers
+
+
+def scrape_broker_site(broker: dict) -> list[dict]:
+    """Scrape a single broker site via HTTP and extract listing links."""
+    url = broker["url"]
+    name = broker["name"]
+    listings = []
+
+    try:
+        resp = requests.get(url, headers=HTTP_HEADERS, timeout=20)
+        if resp.status_code != 200:
+            print(f"  [{name}] HTTP {resp.status_code}")
+            return []
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Find all links that look like individual listing/detail pages
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            text = a.get_text(strip=True)
+
+            # Skip navigation, empty, or very short links
+            if not text or len(text) < 8:
+                continue
+
+            # Build absolute URL
+            full_url = urljoin(url, href)
+
+            # Skip links that point back to the same listing index page
+            if full_url.rstrip("/") == url.rstrip("/"):
+                continue
+
+            # Skip obviously non-listing links (social, contact, about, etc.)
+            skip_patterns = [
+                "facebook", "twitter", "linkedin", "instagram", "youtube",
+                "mailto:", "tel:", "#", "javascript:", "/contact", "/about",
+                "/privacy", "/terms", "/login", "/register", "/blog",
+                "/team", "/faq", "/careers",
+            ]
+            if any(p in full_url.lower() for p in skip_patterns):
+                continue
+
+            # Walk up to find the containing card/element for financial data
+            card = a.find_parent(["article", "div", "li", "tr"])
+            card_html = str(card) if card else str(a)
+            card_text = card.get_text(" ", strip=True) if card else text
+
+            listings.append({
+                "title": text,
+                "href": full_url,
+                "text": card_text,
+                "html": card_html,
+                "source": name,
+            })
+
+    except requests.RequestException as e:
+        print(f"  [{name}] Request failed: {e}")
+
+    return listings
+
+
+def scrape_all_brokers() -> list[dict]:
+    """Scrape all non-JS, non-login broker sites from sources.json."""
+    brokers = load_broker_sources()
+    all_listings = []
+    seen_titles = set()
+
+    print(f"Scraping {len(brokers)} broker sites...")
+
+    for broker in brokers:
+        name = broker["name"]
+        requires_js = broker.get("requires_js", False)
+
+        if requires_js:
+            print(f"  [{name}] Skipping (requires JS)")
+            continue
+
+        print(f"  [{name}] Scraping {broker['url']}")
+        listings = scrape_broker_site(broker)
+
+        for l in listings:
+            if l["title"] not in seen_titles:
+                seen_titles.add(l["title"])
+                all_listings.append(l)
+
+        print(f"  [{name}] Found {len(listings)} listings")
+
+        # Be polite between sites
+        time.sleep(1)
+
+    return all_listings
+
+
 def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
     """Process raw scraper output into Deal objects ready for the API."""
     deals = []
@@ -182,9 +301,16 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
                 continue
 
             # Override with direct data if available
+            if raw.get("source"):
+                deal.source = raw["source"]
             if raw.get("href"):
                 href = raw["href"]
-                deal.url = f"https://www.bizbuysell.com{href}" if href.startswith("/") else href
+                if href.startswith("http"):
+                    deal.url = href
+                elif href.startswith("/"):
+                    deal.url = f"https://www.bizbuysell.com{href}"
+                else:
+                    deal.url = href
 
             deal = process_deal(deal)
 
@@ -243,18 +369,28 @@ def main():
     print(f"Target: {app_url}")
     print()
 
-    # Generate URLs to scrape
+    all_raw_listings = []
+
+    # --- Scrape broker sites (HTTP, no JS needed) ---
+    print("--- Broker Sites (HTTP) ---")
+    broker_listings = scrape_all_brokers()
+    print(f"Total broker listings: {len(broker_listings)}")
+    all_raw_listings.extend(broker_listings)
+    print()
+
+    # --- Scrape BizBuySell (Playwright) ---
+    print("--- BizBuySell (Playwright) ---")
     urls = build_search_urls_with_filters()
     print(f"Generated {len(urls)} search URLs")
-
-    # Run Playwright scraper
     print("Running Playwright scraper...")
-    raw_listings = scrape_with_playwright(urls)
-    print(f"Scraped {len(raw_listings)} raw listings")
+    bbs_listings = scrape_with_playwright(urls)
+    print(f"Scraped {len(bbs_listings)} BizBuySell listings")
+    all_raw_listings.extend(bbs_listings)
+    print()
 
-    # Process listings
-    print("Processing listings...")
-    deals = process_raw_listings(raw_listings)
+    # Process all listings
+    print(f"Processing {len(all_raw_listings)} total raw listings...")
+    deals = process_raw_listings(all_raw_listings)
     print(f"Processed {len(deals)} deals (after filtering)")
 
     if args.dry_run:
