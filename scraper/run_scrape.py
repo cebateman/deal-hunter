@@ -46,8 +46,26 @@ def scrape_with_playwright(urls: list[str]) -> list[dict]:
 const {{ chromium }} = require('playwright');
 
 (async () => {{
-    const browser = await chromium.launch({{ headless: true }});
-    const page = await browser.newPage();
+    const browser = await chromium.launch({{
+        headless: true,
+        args: [
+            '--disable-blink-features=AutomationControlled',
+            '--no-sandbox',
+        ],
+    }});
+
+    const context = await browser.newContext({{
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        viewport: {{ width: 1440, height: 900 }},
+        locale: 'en-US',
+    }});
+
+    const page = await context.newPage();
+
+    // Remove webdriver flag
+    await page.addInitScript(() => {{
+        Object.defineProperty(navigator, 'webdriver', {{ get: () => false }});
+    }});
 
     const urls = {urls_json};
     const allListings = [];
@@ -56,21 +74,52 @@ const {{ chromium }} = require('playwright');
     for (const url of urls) {{
         try {{
             console.error(`Scraping: ${{url}}`);
-            await page.goto(url, {{ timeout: 30000 }});
-            await page.waitForTimeout(2000);
+            const response = await page.goto(url, {{ timeout: 30000, waitUntil: 'domcontentloaded' }});
+            console.error(`  Status: ${{response?.status()}}`);
 
-            const listings = await page.$$eval(
-                '.listing, .search-result, [class*="listing"]',
-                cards => cards.map(card => {{
-                    const titleEl = card.querySelector('a[href*="business-opportunity"]')
-                        || card.querySelector('h3 a')
-                        || card.querySelector('.diamond-header');
-                    const title = titleEl?.textContent?.trim() || '';
-                    const href = titleEl?.getAttribute('href') || '';
-                    const text = card.textContent || '';
-                    return {{ title, href, text, html: card.outerHTML }};
-                }})
-            );
+            // Wait for content to render
+            await page.waitForTimeout(3000);
+
+            // Try multiple selector strategies for BizBuySell
+            const listings = await page.evaluate(() => {{
+                const results = [];
+
+                // Strategy 1: Look for links to business-opportunity pages
+                const links = document.querySelectorAll('a[href*="/businesses-for-sale/"], a[href*="business-opportunity"]');
+                const seenHrefs = new Set();
+
+                for (const link of links) {{
+                    const href = link.getAttribute('href') || '';
+                    if (seenHrefs.has(href)) continue;
+                    seenHrefs.add(href);
+
+                    // Walk up to find the listing card container
+                    let card = link.closest('[class*="listing"], [class*="result"], [class*="card"], article, .row');
+                    if (!card) card = link.parentElement?.parentElement || link.parentElement;
+
+                    const title = link.textContent?.trim() || '';
+                    if (!title || title.length < 5) continue;
+
+                    const text = card?.textContent || '';
+                    const html = card?.outerHTML || link.outerHTML;
+                    results.push({{ title, href, text, html }});
+                }}
+
+                // Strategy 2: If no results, try broader selectors
+                if (results.length === 0) {{
+                    const cards = document.querySelectorAll('[class*="listing"], [class*="search-result"], [class*="bizCard"]');
+                    for (const card of cards) {{
+                        const titleEl = card.querySelector('a, h2, h3, h4');
+                        if (!titleEl) continue;
+                        const title = titleEl.textContent?.trim() || '';
+                        const href = titleEl.getAttribute('href') || '';
+                        if (!title || title.length < 5) continue;
+                        results.push({{ title, href, text: card.textContent || '', html: card.outerHTML }});
+                    }}
+                }}
+
+                return results;
+            }});
 
             for (const l of listings) {{
                 if (l.title && !seen.has(l.title)) {{
@@ -80,6 +129,10 @@ const {{ chromium }} = require('playwright');
             }}
 
             console.error(`  Found ${{listings.length}} listings`);
+
+            // Random delay between pages to avoid rate limiting
+            const delay = 2000 + Math.random() * 3000;
+            await page.waitForTimeout(delay);
         }} catch (e) {{
             console.error(`  Error: ${{e.message}}`);
         }}
@@ -95,16 +148,25 @@ const {{ chromium }} = require('playwright');
             ["node", "-e", script],
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=600,
         )
 
+        # Always show stderr so we can see per-URL status
+        if result.stderr.strip():
+            for line in result.stderr.strip().split('\n'):
+                print(f"  [playwright] {line}")
+
         if result.returncode != 0:
-            print(f"Playwright stderr: {result.stderr}", file=sys.stderr)
+            print(f"Playwright exited with code {result.returncode}", file=sys.stderr)
 
         if result.stdout.strip():
             return json.loads(result.stdout.strip())
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Scraper error: {e}", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print("Scraper timed out after 10 minutes", file=sys.stderr)
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse scraper output: {e}", file=sys.stderr)
+    except FileNotFoundError:
+        print("Node.js not found — is it installed?", file=sys.stderr)
 
     return []
 
