@@ -15,6 +15,7 @@ type Deal = {
   multiple: number | null;
   traits: string[];
   url: string;
+  source: string;
   date_found: string;
 };
 
@@ -48,6 +49,7 @@ const SAMPLE_DEALS: Deal[] = [
     multiple: 3.55,
     traits: ["recurring_revenue", "labor_accessible", "essential_service"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
   {
@@ -63,6 +65,7 @@ const SAMPLE_DEALS: Deal[] = [
     multiple: 3.52,
     traits: ["regulatory_moat", "recurring_revenue", "non_cyclical"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
   {
@@ -78,6 +81,7 @@ const SAMPLE_DEALS: Deal[] = [
     multiple: 3.75,
     traits: ["regulatory_moat", "labor_accessible"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
   {
@@ -93,6 +97,7 @@ const SAMPLE_DEALS: Deal[] = [
     multiple: 3.46,
     traits: ["regulatory_moat", "unglamorous", "labor_accessible"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
 ];
@@ -505,7 +510,10 @@ export default function PipelinePage() {
                   >
                     {deal.title}
                   </a>
-                  <div className="text-xs text-muted">{deal.location}</div>
+                  <div className="text-xs text-muted">
+                    {deal.location}
+                    {deal.source && <span className="ml-1 opacity-60">via {deal.source}</span>}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-muted">{deal.industry}</td>
                 <td className="px-4 py-3 text-right font-mono">
