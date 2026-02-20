@@ -3,17 +3,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 type Deal = {
+  id: number;
   score: number;
   title: string;
   industry: string;
   location: string;
   asking_price: number | null;
+  revenue: number | null;
   ebitda: number | null;
+  cash_flow_sde: number | null;
+  employees: number | null;
   multiple: number | null;
   traits: string[];
   url: string;
+  source: string;
   date_found: string;
 };
+
+type InterestLevel = "very_interested" | "interested" | "not_interesting" | "pass";
+
+type RatingInfo = { interest: InterestLevel; reason: string };
 
 type StepInfo = { name: string; status: string; conclusion: string | null };
 
@@ -33,51 +42,71 @@ type ScraperStatus = {
 // Sample data from the scraper's demo deals — replaced by real DB data once the scraper runs.
 const SAMPLE_DEALS: Deal[] = [
   {
+    id: -1,
     score: 82,
     title: "ABC Commercial Laundry Services",
     industry: "Commercial Laundry",
     location: "Memphis, TN",
     asking_price: 2_200_000,
+    revenue: 3_800_000,
     ebitda: 620_000,
+    cash_flow_sde: null,
+    employees: 15,
     multiple: 3.55,
     traits: ["recurring_revenue", "labor_accessible", "essential_service"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
   {
+    id: -2,
     score: 91,
     title: "Southeastern Fire Sprinkler Co.",
     industry: "Fire Protection",
     location: "Atlanta, GA",
     asking_price: 3_100_000,
+    revenue: 5_200_000,
     ebitda: 880_000,
+    cash_flow_sde: null,
+    employees: 22,
     multiple: 3.52,
     traits: ["regulatory_moat", "recurring_revenue", "non_cyclical"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
   {
+    id: -3,
     score: 76,
     title: "Pacific Fresh-Cut Produce",
     industry: "Produce Packing",
     location: "Salinas, CA",
     asking_price: 4_500_000,
-    ebitda: 1_200_000,
+    revenue: 12_000_000,
+    ebitda: null,
+    cash_flow_sde: 1_200_000,
+    employees: 45,
     multiple: 3.75,
     traits: ["regulatory_moat", "labor_accessible"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
   {
+    id: -4,
     score: 85,
     title: "Heritage Hide & Leather",
     industry: "Hide/Leather Tanning",
     location: "Gloversville, NY",
     asking_price: 1_800_000,
+    revenue: 2_400_000,
     ebitda: 520_000,
+    cash_flow_sde: null,
+    employees: 12,
     multiple: 3.46,
     traits: ["regulatory_moat", "unglamorous", "labor_accessible"],
     url: "#",
+    source: "BizBuySell",
     date_found: "2026-02-17",
   },
 ];
@@ -112,6 +141,19 @@ const TRAIT_LABELS: Record<string, string> = {
   essential_service: "Essential Svc",
 };
 
+const INTEREST_OPTIONS: { value: InterestLevel; label: string; color: string; bg: string }[] = [
+  { value: "very_interested", label: "Very Interested", color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/40" },
+  { value: "interested", label: "Interested", color: "text-blue-400", bg: "bg-blue-500/20 border-blue-500/40" },
+  { value: "not_interesting", label: "Not Interesting", color: "text-amber-400", bg: "bg-amber/20 border-amber/40" },
+  { value: "pass", label: "Pass", color: "text-red-400", bg: "bg-red-500/20 border-red-500/40" },
+];
+
+function interestBadge(interest: InterestLevel): { label: string; className: string } {
+  const opt = INTEREST_OPTIONS.find((o) => o.value === interest);
+  if (!opt) return { label: "—", className: "text-muted" };
+  return { label: opt.label, className: `${opt.bg} ${opt.color} border rounded-full px-2 py-0.5 text-xs font-medium` };
+}
+
 function formatElapsed(start: string): string {
   const ms = Date.now() - new Date(start).getTime();
   const secs = Math.floor(ms / 1000);
@@ -137,6 +179,69 @@ function stepColor(step: StepInfo): string {
   }
   if (step.status === "in_progress") return "text-amber";
   return "text-muted";
+}
+
+/* ---------- Feedback Modal ---------- */
+
+function FeedbackModal({
+  deal,
+  interest,
+  onSubmit,
+  onCancel,
+}: {
+  deal: Deal;
+  interest: InterestLevel;
+  onSubmit: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const opt = INTEREST_OPTIONS.find((o) => o.value === interest)!;
+  const isNegative = interest === "not_interesting" || interest === "pass";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-foreground mb-1">
+          {isNegative ? "Why not interested?" : "What makes this interesting?"}
+        </h3>
+        <p className="text-sm text-muted mb-4">
+          <span className={opt.color + " font-medium"}>{opt.label}</span>
+          {" "}— {deal.title}
+        </p>
+        <textarea
+          autoFocus
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none resize-none"
+          placeholder={
+            isNegative
+              ? "e.g. Too expensive, wrong geography, bad industry fit..."
+              : "e.g. Great margins, recurring contracts, perfect location..."
+          }
+        />
+        <p className="text-xs text-muted mt-2 mb-4">
+          {isNegative
+            ? "Your feedback will help refine deal scoring (avoid traits, criteria adjustments)."
+            : "Your feedback will help strengthen preferred traits and industries."}
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-border px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+          <button
+            onClick={() => onSubmit(reason)}
+            className="rounded-md bg-amber px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+          >
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ---------- Scraper Progress Panel ---------- */
@@ -280,9 +385,14 @@ export default function PipelinePage() {
   const [showPanel, setShowPanel] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [deals, setDeals] = useState<Deal[]>(SAMPLE_DEALS);
+  const [ratings, setRatings] = useState<Record<number, RatingInfo>>({});
   const [usingLive, setUsingLive] = useState(false);
   const [dealsLoading, setDealsLoading] = useState(true);
   const [dealsError, setDealsError] = useState<string | null>(null);
+  // Feedback modal state
+  const [feedbackDeal, setFeedbackDeal] = useState<Deal | null>(null);
+  const [feedbackInterest, setFeedbackInterest] = useState<InterestLevel | null>(null);
+  const [ratingInFlight, setRatingInFlight] = useState<number | null>(null);
 
   const fetchDeals = useCallback(async () => {
     try {
@@ -297,6 +407,9 @@ export default function PipelinePage() {
         return;
       }
       const data = await res.json();
+      if (data.ratings) {
+        setRatings(data.ratings);
+      }
       if (Array.isArray(data.deals) && data.deals.length > 0) {
         setDeals(data.deals);
         setUsingLive(true);
@@ -384,6 +497,41 @@ export default function PipelinePage() {
     }
   }
 
+  function rateDeal(deal: Deal, interest: InterestLevel) {
+    // Open the feedback modal
+    setFeedbackDeal(deal);
+    setFeedbackInterest(interest);
+  }
+
+  async function submitRating(reason: string) {
+    if (!feedbackDeal || !feedbackInterest) return;
+    setRatingInFlight(feedbackDeal.id);
+
+    try {
+      const res = await fetch("/api/deals/rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deal_id: feedbackDeal.id,
+          interest: feedbackInterest,
+          reason,
+        }),
+      });
+      if (res.ok) {
+        setRatings((prev) => ({
+          ...prev,
+          [feedbackDeal.id]: { interest: feedbackInterest, reason },
+        }));
+      }
+    } catch {
+      // Silently fail — rating is not critical
+    } finally {
+      setFeedbackDeal(null);
+      setFeedbackInterest(null);
+      setRatingInFlight(null);
+    }
+  }
+
   function exportExcel() {
     alert(
       "Export Excel will call the Python scraper's write_deals_to_excel() via an API route. " +
@@ -467,10 +615,13 @@ export default function PipelinePage() {
               <th className="px-4 py-3">Deal</th>
               <th className="px-4 py-3">Industry</th>
               <th className="px-4 py-3 text-right">Ask</th>
-              <th className="px-4 py-3 text-right">EBITDA</th>
+              <th className="px-4 py-3 text-right">Revenue</th>
+              <th className="px-4 py-3 text-right" title="EBITDA, or SDE/Cash Flow as proxy">Earnings</th>
+              <th className="px-4 py-3 text-right">Employees</th>
               <th className="px-4 py-3 text-center">Multiple</th>
               <th className="px-4 py-3">Traits</th>
               <th className="px-4 py-3">Found</th>
+              <th className="px-4 py-3 text-center">Interest</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -488,13 +639,29 @@ export default function PipelinePage() {
                   >
                     {deal.title}
                   </a>
-                  <div className="text-xs text-muted">{deal.location}</div>
+                  <div className="text-xs text-muted">
+                    {deal.location}
+                    {deal.source && <span className="ml-1 opacity-60">via {deal.source}</span>}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-muted">{deal.industry}</td>
                 <td className="px-4 py-3 text-right font-mono">
                   {formatMoney(deal.asking_price)}
                 </td>
-                <td className="px-4 py-3 text-right font-mono">{formatMoney(deal.ebitda)}</td>
+                <td className="px-4 py-3 text-right font-mono">{formatMoney(deal.revenue)}</td>
+                <td className="px-4 py-3 text-right">
+                  <span className="font-mono">
+                    {formatMoney(deal.ebitda ?? deal.cash_flow_sde)}
+                  </span>
+                  {(deal.ebitda || deal.cash_flow_sde) && (
+                    <div className="text-xs text-muted">
+                      {deal.ebitda ? "EBITDA" : "SDE Proxy"}
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-muted">
+                  {deal.employees ?? "N/A"}
+                </td>
                 <td
                   className={`px-4 py-3 text-center font-mono font-semibold ${multipleColor(
                     deal.multiple
@@ -515,11 +682,52 @@ export default function PipelinePage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted">{deal.date_found}</td>
+                <td className="px-4 py-3">
+                  {ratings[deal.id] ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <span className={interestBadge(ratings[deal.id].interest).className}>
+                        {interestBadge(ratings[deal.id].interest).label}
+                      </span>
+                      {ratings[deal.id].reason && (
+                        <span className="text-xs text-muted max-w-[120px] truncate" title={ratings[deal.id].reason}>
+                          {ratings[deal.id].reason}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex gap-1 justify-center">
+                      {INTEREST_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => rateDeal(deal, opt.value)}
+                          disabled={ratingInFlight === deal.id || deal.id < 0}
+                          title={opt.label}
+                          className={`w-6 h-6 rounded-full border border-border text-xs font-bold ${opt.color} hover:${opt.bg} transition-colors disabled:opacity-30`}
+                        >
+                          {opt.label[0]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Feedback Modal */}
+      {feedbackDeal && feedbackInterest && (
+        <FeedbackModal
+          deal={feedbackDeal}
+          interest={feedbackInterest}
+          onSubmit={submitRating}
+          onCancel={() => {
+            // Submit with empty reason (skip)
+            submitRating("");
+          }}
+        />
+      )}
 
       {/* Diagnostic banner — shows why live data isn't loading */}
       {!usingLive && !dealsLoading && (

@@ -35,10 +35,46 @@ from deal_hunter_scraper import (
     CRITERIA,
     Deal,
     parse_listing_card,
+    parse_detail_page,
     process_deal,
     passes_financial_filters,
     build_search_urls_with_filters,
 )
+
+
+def fetch_criteria_from_api(app_url: str) -> dict | None:
+    """Fetch deal criteria from the web app's API, if available."""
+    base = app_url.rstrip("/").replace("http://", "https://")
+    url = f"{base}/api/criteria"
+    try:
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            if "ev_min" in data:
+                return data
+    except Exception as e:
+        print(f"Could not fetch criteria from API: {e}", file=sys.stderr)
+    return None
+
+
+def apply_api_criteria(api_criteria: dict) -> None:
+    """Override the in-memory CRITERIA dict with values from the API."""
+    CRITERIA["ev_min"] = api_criteria.get("ev_min", CRITERIA["ev_min"])
+    CRITERIA["ev_max"] = api_criteria.get("ev_max", CRITERIA["ev_max"])
+    CRITERIA["revenue_min"] = api_criteria.get("revenue_min", CRITERIA["revenue_min"])
+    CRITERIA["revenue_max"] = api_criteria.get("revenue_max", CRITERIA["revenue_max"])
+    CRITERIA["ebitda_min"] = api_criteria.get("ebitda_min", CRITERIA["ebitda_min"])
+    CRITERIA["max_multiple"] = api_criteria.get("max_multiple", CRITERIA["max_multiple"])
+    CRITERIA["geography"] = api_criteria.get("geography", CRITERIA["geography"])
+
+    if api_criteria.get("preferred_traits"):
+        CRITERIA["preferred_traits"] = api_criteria["preferred_traits"]
+    if api_criteria.get("avoid_traits"):
+        CRITERIA["avoid_traits"] = api_criteria["avoid_traits"]
+    if api_criteria.get("target_industries"):
+        CRITERIA["target_industries"] = api_criteria["target_industries"]
+    if api_criteria.get("search_keywords"):
+        CRITERIA["search_keywords"] = api_criteria["search_keywords"]
 
 SOURCES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sources.json")
 
@@ -182,6 +218,87 @@ const {{ chromium }} = require('playwright');
     return []
 
 
+def scrape_detail_pages(listing_urls: list[str]) -> dict[str, str]:
+    """Visit individual listing detail pages with Playwright and return {url: html}."""
+    if not listing_urls:
+        return {}
+
+    # Limit to avoid excessive runtime (detail pages take ~4s each)
+    urls_to_visit = listing_urls[:50]
+    urls_json = json.dumps(urls_to_visit)
+
+    script = f"""
+const {{ chromium }} = require('playwright');
+
+(async () => {{
+    const browser = await chromium.launch({{
+        headless: true,
+        args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+    }});
+
+    const context = await browser.newContext({{
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        viewport: {{ width: 1440, height: 900 }},
+        locale: 'en-US',
+    }});
+
+    const page = await context.newPage();
+    await page.addInitScript(() => {{
+        Object.defineProperty(navigator, 'webdriver', {{ get: () => false }});
+    }});
+
+    const urls = {urls_json};
+    const results = {{}};
+
+    for (const url of urls) {{
+        try {{
+            console.error(`Detail: ${{url}}`);
+            const response = await page.goto(url, {{ timeout: 20000, waitUntil: 'domcontentloaded' }});
+            console.error(`  Status: ${{response?.status()}}`);
+
+            await page.waitForTimeout(2000);
+            const html = await page.content();
+            results[url] = html;
+
+            const delay = 1500 + Math.random() * 2500;
+            await page.waitForTimeout(delay);
+        }} catch (e) {{
+            console.error(`  Error: ${{e.message}}`);
+        }}
+    }}
+
+    console.log(JSON.stringify(results));
+    await browser.close();
+}})();
+"""
+
+    try:
+        result = subprocess.run(
+            ["node", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+
+        if result.stderr.strip():
+            for line in result.stderr.strip().split('\n'):
+                print(f"  [detail] {line}")
+
+        if result.returncode != 0:
+            print(f"Detail scraper exited with code {result.returncode}", file=sys.stderr)
+
+        if result.stdout.strip():
+            return json.loads(result.stdout.strip())
+    except subprocess.TimeoutExpired:
+        print("Detail scraper timed out", file=sys.stderr)
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse detail scraper output: {e}", file=sys.stderr)
+    except FileNotFoundError:
+        print("Node.js not found", file=sys.stderr)
+
+    return {}
+
+
 def load_broker_sources() -> list[dict]:
     """Load broker sites from sources.json that don't require JS or login."""
     try:
@@ -282,12 +399,35 @@ def scrape_all_brokers() -> list[dict]:
                 seen_titles.add(l["title"])
                 all_listings.append(l)
 
-        print(f"  [{name}] Found {len(listings)} listings")
+        # Fetch detail pages for broker listings (HTTP, up to 10 per broker)
+        detail_count = 0
+        for l in listings[:10]:
+            detail_url = l.get("href", "")
+            if not detail_url or "bizbuysell.com" in detail_url:
+                continue
+            html = fetch_broker_detail_page(detail_url)
+            if html:
+                l["detail_html"] = html
+                detail_count += 1
+            time.sleep(0.5)
+
+        print(f"  [{name}] Found {len(listings)} listings, fetched {detail_count} detail pages")
 
         # Be polite between sites
         time.sleep(1)
 
     return all_listings
+
+
+def fetch_broker_detail_page(url: str) -> str | None:
+    """Fetch a single broker detail page via HTTP."""
+    try:
+        resp = requests.get(url, headers=HTTP_HEADERS, timeout=15)
+        if resp.status_code == 200:
+            return resp.text
+    except requests.RequestException:
+        pass
+    return None
 
 
 def _extract_financials_from_text(deal: Deal, text: str) -> None:
@@ -318,6 +458,16 @@ def _extract_financials_from_text(deal: Deal, text: str) -> None:
         m = re.search(r"(?:cash\s*flow|SDE|seller.?s?\s+discretionary)[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
         if m:
             deal.cash_flow_sde = _pm(m.group(1))
+
+    if not deal.year_established:
+        m = re.search(r"(?:Established|Founded|Year\s+Est)[^\d]*((?:19|20)\d{2})", text, re.IGNORECASE)
+        if m:
+            deal.year_established = int(m.group(1))
+
+    if not deal.employees:
+        m = re.search(r"(?:Employees?|Staff|Workers?|Team\s+Size)[^\d]*(\d{1,4})", text, re.IGNORECASE)
+        if m:
+            deal.employees = int(m.group(1))
 
 
 def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
@@ -358,6 +508,10 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
             if raw.get("text"):
                 _extract_financials_from_text(deal, raw["text"])
 
+            # Enrich from the detail page if we scraped it
+            if raw.get("detail_html"):
+                deal = parse_detail_page(raw["detail_html"], deal)
+
             deal.date_found = deal.date_found or datetime.now().strftime("%Y-%m-%d")
             deal = process_deal(deal)
 
@@ -380,7 +534,9 @@ def process_raw_listings(raw_listings: list[dict]) -> list[dict]:
 
 def post_deals_to_api(deals: list[dict], app_url: str, api_secret: str, send_digest: bool = False) -> dict:
     """POST scraped deals to the Deal Hunter API."""
-    url = f"{app_url.rstrip('/')}/api/scrape"
+    # Ensure HTTPS to avoid 301 redirects that downgrade POST → GET (→ 405)
+    base = app_url.rstrip("/").replace("http://", "https://")
+    url = f"{base}/api/scrape"
     payload = {
         "deals": deals,
         "send_digest": send_digest,
@@ -409,6 +565,21 @@ def main():
     print(f"Target: {app_url}")
     print()
 
+    # --- Fetch criteria from the web app ---
+    print("--- Fetching Deal Criteria ---")
+    api_criteria = fetch_criteria_from_api(app_url)
+    if api_criteria:
+        apply_api_criteria(api_criteria)
+        print(f"Loaded criteria from API (updated {api_criteria.get('updated_at', 'unknown')})")
+        print(f"  EV range: ${CRITERIA['ev_min']:,.0f} - ${CRITERIA['ev_max']:,.0f}")
+        print(f"  EBITDA min: ${CRITERIA['ebitda_min']:,.0f}")
+        print(f"  Max multiple: {CRITERIA['max_multiple']}x")
+        print(f"  Target industries: {len(CRITERIA['target_industries'])}")
+        print(f"  Search keywords: {len(CRITERIA['search_keywords'])}")
+    else:
+        print("Using default criteria (API not available)")
+    print()
+
     all_raw_listings = []
 
     # --- Scrape broker sites (HTTP, no JS needed) ---
@@ -427,6 +598,44 @@ def main():
     print(f"Scraped {len(bbs_listings)} BizBuySell listings")
     all_raw_listings.extend(bbs_listings)
     print()
+
+    # --- Scrape detail pages for full financials ---
+    # Collect listing URLs that point to individual deal pages
+    detail_urls = []
+    for raw in all_raw_listings:
+        href = raw.get("href", "")
+        if not href:
+            continue
+        if href.startswith("/"):
+            href = f"https://www.bizbuysell.com{href}"
+        # Only visit detail pages (not search/category pages)
+        if "bizbuysell.com" in href and (
+            "/businesses-for-sale/" in href or "business-opportunity" in href
+        ):
+            # Skip search index pages (no trailing slug/ID)
+            if re.search(r"/\d+/?$", href) or re.search(r"/[a-z].*-[a-z].*-\d+", href):
+                detail_urls.append(href)
+
+    # Deduplicate
+    detail_urls = list(dict.fromkeys(detail_urls))
+
+    if detail_urls:
+        print(f"--- Detail Pages ({len(detail_urls)} listings) ---")
+        print("Scraping individual listing pages for full financials...")
+        detail_html_map = scrape_detail_pages(detail_urls)
+        print(f"Successfully scraped {len(detail_html_map)} detail pages")
+        print()
+
+        # Attach detail HTML to raw listings for enrichment during processing
+        for raw in all_raw_listings:
+            href = raw.get("href", "")
+            if href.startswith("/"):
+                href = f"https://www.bizbuysell.com{href}"
+            if href in detail_html_map:
+                raw["detail_html"] = detail_html_map[href]
+    else:
+        print("No detail page URLs found to enrich.")
+        print()
 
     # Process all listings
     print(f"Processing {len(all_raw_listings)} total raw listings...")

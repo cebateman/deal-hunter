@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, Source } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
   const body = await req.json();
   const sql = getDb();
   const numId = Number(id);
 
-  const existing = (await sql`SELECT * FROM sources WHERE id = ${numId}`) as Source[];
+  const existing = (await sql`
+    SELECT * FROM sources WHERE id = ${numId} AND user_id = ${session.userId}
+  `) as Source[];
   if (existing.length === 0) {
     return NextResponse.json({ error: "Source not found" }, { status: 404 });
   }
@@ -33,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       priority = ${fields.priority}, region = ${fields.region}, notes = ${fields.notes},
       requires_js = ${fields.requires_js}, requires_login = ${fields.requires_login},
       enabled = ${fields.enabled}, updated_at = now()
-    WHERE id = ${numId}
+    WHERE id = ${numId} AND user_id = ${session.userId}
     RETURNING *
   `;
 
@@ -41,15 +49,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
   const sql = getDb();
   const numId = Number(id);
 
-  const existing = await sql`SELECT id FROM sources WHERE id = ${numId}`;
+  const existing = await sql`
+    SELECT id FROM sources WHERE id = ${numId} AND user_id = ${session.userId}
+  `;
   if (existing.length === 0) {
     return NextResponse.json({ error: "Source not found" }, { status: 404 });
   }
 
-  await sql`DELETE FROM sources WHERE id = ${numId}`;
+  await sql`DELETE FROM sources WHERE id = ${numId} AND user_id = ${session.userId}`;
   return NextResponse.json({ ok: true });
 }

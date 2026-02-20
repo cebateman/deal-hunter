@@ -257,17 +257,17 @@ const SOURCES: SeedSource[] = [
   },
 ];
 
-export async function seedSources() {
+export async function seedSources(userId: number) {
   const sql = getDb();
   await initSchema();
 
-  const result = await sql`SELECT COUNT(*) as n FROM sources`;
-  if (Number(result[0].n) > 0) return; // already seeded
+  const result = await sql`SELECT COUNT(*) as n FROM sources WHERE user_id = ${userId}`;
+  if (Number(result[0].n) > 0) return; // already seeded for this user
 
   for (const s of SOURCES) {
     await sql`
-      INSERT INTO sources (name, url, type, priority, region, notes, requires_js, requires_login)
-      VALUES (${s.name}, ${s.url}, ${s.type}, ${s.priority}, ${s.region}, ${s.notes}, ${s.requires_js}, ${s.requires_login})
+      INSERT INTO sources (user_id, name, url, type, priority, region, notes, requires_js, requires_login)
+      VALUES (${userId}, ${s.name}, ${s.url}, ${s.type}, ${s.priority}, ${s.region}, ${s.notes}, ${s.requires_js}, ${s.requires_login})
     `;
   }
 }
