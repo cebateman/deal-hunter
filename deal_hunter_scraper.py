@@ -328,6 +328,100 @@ def parse_listing_card(card_html: str, source_url: str = "") -> Optional[Deal]:
     return deal
 
 
+def parse_detail_page(html: str, deal: Deal) -> Deal:
+    """Parse a BizBuySell detail page to fill in missing fields on a Deal."""
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, "html.parser")
+    text = soup.get_text(" ", strip=True)
+
+    # --- Financials from structured key/value pairs ---
+    # BizBuySell detail pages show financials in dt/dd or label/value patterns
+    for dt in soup.find_all(["dt", "th", "strong", "span", "b"]):
+        label = dt.get_text(strip=True).lower().rstrip(":")
+        # Find the next sibling or paired element with the value
+        val_el = dt.find_next_sibling(["dd", "td", "span", "div"])
+        if not val_el:
+            val_el = dt.find_next(["dd", "td", "span"])
+        if not val_el:
+            continue
+        val_text = val_el.get_text(strip=True)
+
+        if "asking price" in label or "listing price" in label:
+            if not deal.asking_price:
+                deal.asking_price = parse_money(val_text)
+        elif "gross revenue" in label or label == "revenue":
+            if not deal.revenue:
+                deal.revenue = parse_money(val_text)
+        elif "ebitda" in label:
+            if not deal.ebitda:
+                deal.ebitda = parse_money(val_text)
+        elif "cash flow" in label or "sde" in label or "discretionary" in label:
+            if not deal.cash_flow_sde:
+                deal.cash_flow_sde = parse_money(val_text)
+        elif "year" in label and ("established" in label or "founded" in label):
+            if not deal.year_established:
+                m = re.search(r"((?:19|20)\d{2})", val_text)
+                if m:
+                    deal.year_established = int(m.group(1))
+        elif "employee" in label or "staff" in label:
+            if not deal.employees:
+                m = re.search(r"(\d+)", val_text)
+                if m:
+                    deal.employees = int(m.group(1))
+
+    # --- Fallback: regex on full page text ---
+    if not deal.revenue:
+        m = re.search(r"(?:Gross\s+Revenue|Revenue)[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.revenue = parse_money(m.group(1))
+
+    if not deal.ebitda:
+        m = re.search(r"EBITDA[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.ebitda = parse_money(m.group(1))
+
+    if not deal.cash_flow_sde:
+        m = re.search(r"(?:Cash\s*Flow|SDE|Seller.?s?\s+Discretionary)[^$]*\$([\d,]+(?:\.\d+)?(?:[MmKk])?)", text, re.IGNORECASE)
+        if m:
+            deal.cash_flow_sde = parse_money(m.group(1))
+
+    if not deal.year_established:
+        m = re.search(r"(?:Established|Founded|Year\s+Est)[^\d]*((?:19|20)\d{2})", text, re.IGNORECASE)
+        if m:
+            deal.year_established = int(m.group(1))
+
+    if not deal.employees:
+        m = re.search(r"(?:Employees?|Staff|Workers?|Team)[^\d]*(\d{1,4})", text, re.IGNORECASE)
+        if m:
+            deal.employees = int(m.group(1))
+
+    # --- Description: prefer the long-form listing description ---
+    desc_el = soup.select_one(
+        "#listingDescription, .businessDescription, .listing-description, "
+        "[class*='description'], [class*='detail-text'], article p"
+    )
+    if desc_el:
+        full_desc = desc_el.get_text(" ", strip=True)
+        if len(full_desc) > len(deal.description):
+            deal.description = full_desc[:1000]
+
+    # --- Location fallback ---
+    if not deal.location:
+        loc_el = soup.select_one(".listing-location, .location, [class*='location']")
+        if loc_el:
+            deal.location = loc_el.get_text(strip=True)
+
+    # --- Broker name ---
+    if not deal.broker:
+        broker_el = soup.select_one(
+            ".broker-name, .agent-name, [class*='broker'], [class*='agent']"
+        )
+        if broker_el:
+            deal.broker = broker_el.get_text(strip=True)[:100]
+
+    return deal
+
+
 def process_deal(deal: Deal) -> Deal:
     """Enrich a deal with classification, traits, score."""
     deal.industry = classify_industry(deal.title, deal.description)
