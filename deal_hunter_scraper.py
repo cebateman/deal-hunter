@@ -35,7 +35,11 @@ CRITERIA = {
         "Produce Packing", "Fresh-Cut Vegetables", "Hide/Leather Tanning",
         "Pallet Recycling", "Textile Recycling", "Seafood Processing",
         "Contract Packaging", "Industrial Parts Cleaning", "Janitorial Services",
-        "Industrial Refrigeration", "Demolition & Salvage"
+        "Industrial Refrigeration", "Demolition & Salvage",
+        "Plumbing Services", "HVAC Services", "Pest Control",
+        "Waste Management", "Landscaping & Grounds", "Auto Services",
+        "Roofing & Restoration", "Welding & Fabrication",
+        "Electrical Services", "Printing & Signage",
     ],
     # BizBuySell search categories that map to your interests
     "bizbuysell_categories": [
@@ -86,9 +90,64 @@ INDUSTRY_KEYWORDS = {
     "Contract Packaging": ["co-pack", "contract pack", "packaging service"],
     "Industrial Parts Cleaning": ["parts cleaning", "degreasing", "industrial cleaning"],
     "Janitorial Services": ["janitorial", "commercial cleaning", "building maintenance", "custodial"],
-    "Industrial Refrigeration": ["refrigeration", "cold storage", "HVAC service", "cooling"],
+    "Industrial Refrigeration": ["refrigeration", "cold storage", "cold chain", "freezer"],
     "Hide/Leather Tanning": ["tanning", "hide", "leather processing", "fur dressing"],
     "Demolition & Salvage": ["demolition", "salvage", "deconstruction"],
+    "Plumbing Services": ["plumbing", "plumber", "drain", "sewer", "pipe"],
+    "HVAC Services": ["hvac", "heating", "air conditioning", "ventilation", "furnace"],
+    "Pest Control": ["pest control", "exterminator", "termite", "pest management"],
+    "Waste Management": ["waste management", "waste collection", "trash", "garbage", "hauling", "dumpster", "roll-off"],
+    "Landscaping & Grounds": ["landscaping", "lawn care", "grounds maintenance", "irrigation", "tree service"],
+    "Auto Services": ["auto repair", "auto body", "collision", "car wash", "oil change", "tire", "transmission"],
+    "Roofing & Restoration": ["roofing", "restoration", "waterproofing", "insulation"],
+    "Welding & Fabrication": ["welding", "fabrication", "metal work", "machine shop", "machining"],
+    "Electrical Services": ["electrical contractor", "electrician", "electrical service"],
+    "Printing & Signage": ["printing", "print shop", "signage", "sign company", "screen print"],
+}
+
+# Fallback: map BizBuySell site categories to our industry labels
+CATEGORY_TO_INDUSTRY = {
+    "cleaning": "Janitorial Services",
+    "maintenance": "Janitorial Services",
+    "janitorial": "Janitorial Services",
+    "laundry": "Commercial Laundry",
+    "dry cleaning": "Commercial Laundry",
+    "fire": "Fire Protection",
+    "elevator": "Elevator Maintenance",
+    "environmental": "Environmental Remediation",
+    "water treatment": "Water Treatment",
+    "meat": "Meat Processing",
+    "food processing": "Meat Processing",
+    "produce": "Produce Packing",
+    "seafood": "Seafood Processing",
+    "pallet": "Pallet Recycling",
+    "textile": "Textile Recycling",
+    "packaging": "Contract Packaging",
+    "industrial": "Industrial Parts Cleaning",
+    "refrigeration": "Industrial Refrigeration",
+    "cold storage": "Industrial Refrigeration",
+    "hvac": "HVAC Services",
+    "heating": "HVAC Services",
+    "air conditioning": "HVAC Services",
+    "plumbing": "Plumbing Services",
+    "pest control": "Pest Control",
+    "exterminating": "Pest Control",
+    "waste": "Waste Management",
+    "hauling": "Waste Management",
+    "landscaping": "Landscaping & Grounds",
+    "lawn": "Landscaping & Grounds",
+    "auto repair": "Auto Services",
+    "car wash": "Auto Services",
+    "auto body": "Auto Services",
+    "roofing": "Roofing & Restoration",
+    "welding": "Welding & Fabrication",
+    "machine shop": "Welding & Fabrication",
+    "electrical": "Electrical Services",
+    "printing": "Printing & Signage",
+    "sign": "Printing & Signage",
+    "demolition": "Demolition & Salvage",
+    "tanning": "Hide/Leather Tanning",
+    "leather": "Hide/Leather Tanning",
 }
 
 
@@ -131,13 +190,22 @@ def parse_money(text: str) -> Optional[float]:
         return None
 
 
-def classify_industry(title: str, description: str) -> str:
-    """Classify a deal into one of our target industries based on keywords."""
+def classify_industry(title: str, description: str, category: str = "") -> str:
+    """Classify a deal into one of our target industries based on keywords.
+    Falls back to BizBuySell category mapping if keyword matching fails."""
     text = f"{title} {description}".lower()
     for industry, keywords in INDUSTRY_KEYWORDS.items():
         for kw in keywords:
             if kw.lower() in text:
                 return industry
+
+    # Fallback: try to match the BizBuySell site category
+    if category:
+        cat_lower = category.lower()
+        for cat_keyword, industry in CATEGORY_TO_INDUSTRY.items():
+            if cat_keyword in cat_lower:
+                return industry
+
     return "Other"
 
 
@@ -405,6 +473,21 @@ def parse_detail_page(html: str, deal: Deal) -> Deal:
         if len(full_desc) > len(deal.description):
             deal.description = full_desc[:1000]
 
+    # --- Category from BizBuySell breadcrumb/labels ---
+    if not deal.category:
+        cat_el = soup.select_one(
+            ".breadcrumb li:nth-child(2), .breadcrumbs a:nth-child(2), "
+            "[class*='category'], [class*='businessType'], "
+            "[class*='industry'], .listing-type"
+        )
+        if cat_el:
+            deal.category = cat_el.get_text(strip=True)[:100]
+        if not deal.category:
+            # Fallback: check for category in meta tags
+            meta_cat = soup.select_one("meta[name='category'], meta[property='article:section']")
+            if meta_cat:
+                deal.category = (meta_cat.get("content") or "")[:100]
+
     # --- Location fallback ---
     if not deal.location:
         loc_el = soup.select_one(".listing-location, .location, [class*='location']")
@@ -424,7 +507,7 @@ def parse_detail_page(html: str, deal: Deal) -> Deal:
 
 def process_deal(deal: Deal) -> Deal:
     """Enrich a deal with classification, traits, score."""
-    deal.industry = classify_industry(deal.title, deal.description)
+    deal.industry = classify_industry(deal.title, deal.description, deal.category)
     deal.traits, deal.avoid_traits = detect_traits(deal.description, deal.title)
     deal.multiple = compute_multiple(deal)
     deal.score = score_deal(deal)
