@@ -10,6 +10,7 @@ type Deal = {
   asking_price: number | null;
   revenue: number | null;
   ebitda: number | null;
+  cash_flow_sde: number | null;
   employees: number | null;
   multiple: number | null;
   traits: string[];
@@ -42,6 +43,7 @@ const SAMPLE_DEALS: Deal[] = [
     asking_price: 2_200_000,
     revenue: 3_800_000,
     ebitda: 620_000,
+    cash_flow_sde: null,
     employees: 15,
     multiple: 3.55,
     traits: ["recurring_revenue", "labor_accessible", "essential_service"],
@@ -56,6 +58,7 @@ const SAMPLE_DEALS: Deal[] = [
     asking_price: 3_100_000,
     revenue: 5_200_000,
     ebitda: 880_000,
+    cash_flow_sde: null,
     employees: 22,
     multiple: 3.52,
     traits: ["regulatory_moat", "recurring_revenue", "non_cyclical"],
@@ -69,7 +72,8 @@ const SAMPLE_DEALS: Deal[] = [
     location: "Salinas, CA",
     asking_price: 4_500_000,
     revenue: 12_000_000,
-    ebitda: 1_200_000,
+    ebitda: null,
+    cash_flow_sde: 1_200_000,
     employees: 45,
     multiple: 3.75,
     traits: ["regulatory_moat", "labor_accessible"],
@@ -84,6 +88,7 @@ const SAMPLE_DEALS: Deal[] = [
     asking_price: 1_800_000,
     revenue: 2_400_000,
     ebitda: 520_000,
+    cash_flow_sde: null,
     employees: 12,
     multiple: 3.46,
     traits: ["regulatory_moat", "unglamorous", "labor_accessible"],
@@ -478,7 +483,7 @@ export default function PipelinePage() {
               <th className="px-4 py-3">Industry</th>
               <th className="px-4 py-3 text-right">Ask</th>
               <th className="px-4 py-3 text-right">Revenue</th>
-              <th className="px-4 py-3 text-right">EBITDA</th>
+              <th className="px-4 py-3 text-right" title="EBITDA, or SDE/Cash Flow as proxy">Earnings</th>
               <th className="px-4 py-3 text-right">Employees</th>
               <th className="px-4 py-3 text-center">Multiple</th>
               <th className="px-4 py-3">Traits</th>
@@ -507,7 +512,16 @@ export default function PipelinePage() {
                   {formatMoney(deal.asking_price)}
                 </td>
                 <td className="px-4 py-3 text-right font-mono">{formatMoney(deal.revenue)}</td>
-                <td className="px-4 py-3 text-right font-mono">{formatMoney(deal.ebitda)}</td>
+                <td className="px-4 py-3 text-right">
+                  <span className="font-mono">
+                    {formatMoney(deal.ebitda ?? deal.cash_flow_sde)}
+                  </span>
+                  {(deal.ebitda || deal.cash_flow_sde) && (
+                    <div className="text-xs text-muted">
+                      {deal.ebitda ? "EBITDA" : "SDE Proxy"}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right font-mono text-muted">
                   {deal.employees ?? "N/A"}
                 </td>
