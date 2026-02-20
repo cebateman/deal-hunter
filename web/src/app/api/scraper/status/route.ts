@@ -46,25 +46,17 @@ export async function GET() {
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  // Fetch the most recent runs for the scrape workflow
+  // Fetch the most recent runs for the weekly-scrape workflow
   const runsRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/actions/workflows/scrape.yml/runs?per_page=1`,
+    `https://api.github.com/repos/${owner}/${repo}/actions/workflows/weekly-scrape.yml/runs?per_page=1`,
     { headers, cache: "no-store" }
   );
 
   if (!runsRes.ok) {
-    // Try the other workflow file
-    const runsRes2 = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/actions/workflows/weekly-scrape.yml/runs?per_page=1`,
-      { headers, cache: "no-store" }
+    return NextResponse.json(
+      { error: `GitHub API error: ${runsRes.status}` },
+      { status: runsRes.status }
     );
-    if (!runsRes2.ok) {
-      return NextResponse.json(
-        { error: `GitHub API error: ${runsRes.status}` },
-        { status: runsRes.status }
-      );
-    }
-    return handleRunsResponse(runsRes2, headers);
   }
 
   return handleRunsResponse(runsRes, headers);

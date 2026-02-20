@@ -279,6 +279,45 @@ export default function PipelinePage() {
   const [scraperStatus, setScraperStatus] = useState<ScraperStatus | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [deals, setDeals] = useState<Deal[]>(SAMPLE_DEALS);
+  const [usingLive, setUsingLive] = useState(false);
+  const [dealsLoading, setDealsLoading] = useState(true);
+  const [dealsError, setDealsError] = useState<string | null>(null);
+
+  const fetchDeals = useCallback(async () => {
+    try {
+      const res = await fetch("/api/deals");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDealsError(
+          `API returned ${res.status}: ${data.error || res.statusText}`
+        );
+        setDeals(SAMPLE_DEALS);
+        setUsingLive(false);
+        return;
+      }
+      const data = await res.json();
+      if (Array.isArray(data.deals) && data.deals.length > 0) {
+        setDeals(data.deals);
+        setUsingLive(true);
+        setDealsError(null);
+      } else {
+        setDeals(SAMPLE_DEALS);
+        setUsingLive(false);
+        setDealsError(null);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setDealsError(`Network error: ${msg}`);
+    } finally {
+      setDealsLoading(false);
+    }
+  }, []);
+
+  // Fetch real deals on mount
+  useEffect(() => {
+    fetchDeals();
+  }, [fetchDeals]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -293,11 +332,15 @@ export default function PipelinePage() {
           clearInterval(pollRef.current);
           pollRef.current = null;
         }
+        // Refresh deals when scraper finishes
+        if (data.status === "completed") {
+          fetchDeals();
+        }
       }
     } catch {
       // Network error — keep polling
     }
-  }, []);
+  }, [fetchDeals]);
 
   // Start polling when the panel is shown
   useEffect(() => {
@@ -309,7 +352,7 @@ export default function PipelinePage() {
     };
   }, [showPanel, fetchStatus]);
 
-  const deals = [...SAMPLE_DEALS].sort((a, b) => b.score - a.score);
+  const sortedDeals = [...deals].sort((a, b) => b.score - a.score);
 
   async function runScraper() {
     setScraping(true);
@@ -355,7 +398,8 @@ export default function PipelinePage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Deal Pipeline</h1>
           <p className="text-sm text-muted mt-1">
-            {deals.length} deals &middot; Top score: {deals[0]?.score ?? 0}
+            {sortedDeals.length} deals &middot; Top score: {sortedDeals[0]?.score ?? 0}
+            {!usingLive && !dealsLoading && " (sample data)"}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -430,7 +474,7 @@ export default function PipelinePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {deals.map((deal, i) => (
+            {sortedDeals.map((deal, i) => (
               <tr key={i} className="hover:bg-surface-hover transition-colors">
                 <td className={`px-4 py-3 text-center font-bold text-lg ${scoreColor(deal.score)}`}>
                   {deal.score}
@@ -477,11 +521,40 @@ export default function PipelinePage() {
         </table>
       </div>
 
-      {/* Empty state hint */}
-      <p className="mt-4 text-xs text-muted text-center">
-        Showing sample deals. Run the scraper to populate with real listings from your configured
-        sources.
-      </p>
+      {/* Diagnostic banner — shows why live data isn't loading */}
+      {!usingLive && !dealsLoading && (
+        <div className="mt-4 rounded-lg border border-amber/30 bg-amber/5 p-4 text-sm">
+          <p className="font-medium text-amber mb-2">Showing sample data</p>
+          {dealsError ? (
+            <p className="text-red-400 font-mono text-xs mb-2">{dealsError}</p>
+          ) : (
+            <p className="text-muted mb-2">
+              The database returned 0 deals. The scraper hasn&apos;t posted any deals yet.
+            </p>
+          )}
+          <details className="text-xs text-muted">
+            <summary className="cursor-pointer hover:text-foreground transition-colors">
+              Setup checklist
+            </summary>
+            <ul className="mt-2 ml-4 list-disc space-y-1">
+              <li>
+                <strong>DATABASE_URL</strong> set in Vercel env vars (Neon Postgres connection
+                string)
+              </li>
+              <li>
+                <strong>SCRAPE_API_SECRET</strong> set in both Vercel env vars &amp; GitHub repo
+                secrets
+              </li>
+              <li>
+                <strong>APP_URL</strong> set in GitHub repo secrets (your Vercel deployment URL)
+              </li>
+              <li>
+                <strong>GITHUB_PAT</strong> set in Vercel env vars (for the Run Scraper button)
+              </li>
+            </ul>
+          </details>
+        </div>
+      )}
     </div>
   );
 }

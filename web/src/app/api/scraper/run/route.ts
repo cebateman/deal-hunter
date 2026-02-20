@@ -11,7 +11,7 @@ export async function POST() {
 
   const owner = process.env.GITHUB_OWNER || "cebateman";
   const repo = process.env.GITHUB_REPO || "deal-hunter";
-  const workflowFile = "scrape.yml";
+  const workflowFile = "weekly-scrape.yml";
   const ref = process.env.GITHUB_REF || "main";
 
   const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflowFile}/dispatches`;
