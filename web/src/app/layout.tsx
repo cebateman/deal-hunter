@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ThemeToggle from "./theme-toggle";
+import UserMenu from "./user-menu";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -44,6 +45,7 @@ export default function RootLayout({
                 </Link>
               ))}
             </div>
+            <UserMenu />
             <ThemeToggle />
           </div>
         </nav>

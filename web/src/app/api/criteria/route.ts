@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, initSchema, Criteria } from "@/lib/db";
+import { getSession } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const sql = getDb();
     await initSchema();
 
-    const rows = (await sql`SELECT * FROM criteria ORDER BY id LIMIT 1`) as Criteria[];
+    const rows = (await sql`
+      SELECT * FROM criteria WHERE user_id = ${session.userId} ORDER BY id LIMIT 1
+    `) as Criteria[];
 
     if (rows.length === 0) {
-      // Insert default row and return it
+      // Insert default row for this user and return it
       const inserted = (await sql`
-        INSERT INTO criteria DEFAULT VALUES RETURNING *
+        INSERT INTO criteria (user_id) VALUES (${session.userId}) RETURNING *
       `) as Criteria[];
       return NextResponse.json(inserted[0]);
     }
@@ -26,16 +34,25 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const sql = getDb();
     await initSchema();
 
-    // Ensure a row exists
-    const existing = (await sql`SELECT id FROM criteria ORDER BY id LIMIT 1`) as { id: number }[];
+    // Ensure a row exists for this user
+    const existing = (await sql`
+      SELECT id FROM criteria WHERE user_id = ${session.userId} ORDER BY id LIMIT 1
+    `) as { id: number }[];
     let id: number;
 
     if (existing.length === 0) {
-      const inserted = (await sql`INSERT INTO criteria DEFAULT VALUES RETURNING id`) as { id: number }[];
+      const inserted = (await sql`
+        INSERT INTO criteria (user_id) VALUES (${session.userId}) RETURNING id
+      `) as { id: number }[];
       id = inserted[0].id;
     } else {
       id = existing[0].id;
@@ -55,7 +72,7 @@ export async function PUT(req: NextRequest) {
         target_industries = ${body.target_industries},
         search_keywords = ${body.search_keywords},
         updated_at = now()
-      WHERE id = ${id}
+      WHERE id = ${id} AND user_id = ${session.userId}
       RETURNING *
     `) as Criteria[];
 

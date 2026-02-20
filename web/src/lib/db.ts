@@ -10,9 +10,22 @@ export function getDb() {
 
 export async function initSchema() {
   const sql = getDb();
+
+  // Users table
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS sources (
       id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       url TEXT NOT NULL,
       type TEXT NOT NULL CHECK(type IN ('marketplace', 'broker')),
@@ -58,6 +71,7 @@ export async function initSchema() {
   await sql`
     CREATE TABLE IF NOT EXISTS criteria (
       id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       ev_min DOUBLE PRECISION NOT NULL DEFAULT 1000000,
       ev_max DOUBLE PRECISION NOT NULL DEFAULT 5000000,
       revenue_min DOUBLE PRECISION NOT NULL DEFAULT 2000000,
@@ -70,6 +84,20 @@ export async function initSchema() {
       target_industries TEXT[] NOT NULL DEFAULT '{Water Treatment,Fire Protection,Elevator Maintenance,Environmental Remediation,Commercial Laundry,Meat Processing,Produce Packing,Fresh-Cut Vegetables,Hide/Leather Tanning,Pallet Recycling,Textile Recycling,Seafood Processing,Contract Packaging,Industrial Parts Cleaning,Janitorial Services,Industrial Refrigeration,Demolition & Salvage}',
       search_keywords TEXT[] NOT NULL DEFAULT '{laundry,fire sprinkler,fire protection,elevator,remediation,abatement,water treatment,meat processing,produce,fresh cut,seafood,fish processing,pallet,textile,recycling,packaging,co-packing,industrial cleaning,parts cleaning,degreasing,janitorial,commercial cleaning,refrigeration,tanning,hide,leather processing,demolition,environmental services}',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  // Deal ratings — per-user interest level on each deal
+  await sql`
+    CREATE TABLE IF NOT EXISTS deal_ratings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      deal_id INTEGER NOT NULL,
+      interest TEXT NOT NULL CHECK(interest IN ('very_interested', 'interested', 'not_interesting', 'pass')),
+      reason TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE(user_id, deal_id)
     );
   `;
 }
@@ -97,6 +125,24 @@ export type Deal = {
   listing_id: string;
   category: string;
   created_at: string;
+};
+
+export type User = {
+  id: number;
+  email: string;
+  password_hash: string;
+  name: string;
+  created_at: string;
+};
+
+export type DealRating = {
+  id: number;
+  user_id: number;
+  deal_id: number;
+  interest: "very_interested" | "interested" | "not_interesting" | "pass";
+  reason: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Criteria = {
