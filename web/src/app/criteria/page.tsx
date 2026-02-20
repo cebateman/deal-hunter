@@ -157,7 +157,7 @@ export default function CriteriaPage() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none";
+    "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none";
   const labelClass = "block text-xs font-medium text-muted mb-1";
 
   return (
@@ -367,13 +367,13 @@ export default function CriteriaPage() {
             {industries.map((ind) => (
               <span
                 key={ind}
-                className="group flex items-center gap-1.5 rounded-full bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber border border-amber/30"
+                className="group flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary border border-primary/30"
               >
                 {ind}
                 <button
                   type="button"
                   onClick={() => removeItem(ind, industries, setIndustries)}
-                  className="text-amber/60 hover:text-red-400 transition-colors"
+                  className="text-primary/60 hover:text-red-400 transition-colors"
                 >
                   &times;
                 </button>
@@ -396,7 +396,7 @@ export default function CriteriaPage() {
             <button
               type="button"
               onClick={addIndustry}
-              className="rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-foreground hover:bg-amber hover:text-black transition-colors whitespace-nowrap"
+              className="rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-foreground hover:bg-primary hover:text-white transition-colors whitespace-nowrap"
             >
               Add
             </button>
@@ -445,7 +445,7 @@ export default function CriteriaPage() {
             <button
               type="button"
               onClick={addKeyword}
-              className="rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-foreground hover:bg-amber hover:text-black transition-colors whitespace-nowrap"
+              className="rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-foreground hover:bg-primary hover:text-white transition-colors whitespace-nowrap"
             >
               Add
             </button>
@@ -457,7 +457,7 @@ export default function CriteriaPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-amber px-6 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-50"
+            className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Criteria"}
           </button>

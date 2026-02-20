@@ -144,7 +144,7 @@ const TRAIT_LABELS: Record<string, string> = {
 const INTEREST_OPTIONS: { value: InterestLevel; label: string; color: string; bg: string }[] = [
   { value: "very_interested", label: "Very Interested", color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/40" },
   { value: "interested", label: "Interested", color: "text-blue-400", bg: "bg-blue-500/20 border-blue-500/40" },
-  { value: "not_interesting", label: "Not Interesting", color: "text-amber-400", bg: "bg-amber/20 border-amber/40" },
+  { value: "not_interesting", label: "Not Interesting", color: "text-amber-400", bg: "bg-amber-400/20 border-amber-400/40" },
   { value: "pass", label: "Pass", color: "text-red-400", bg: "bg-red-500/20 border-red-500/40" },
 ];
 
@@ -177,7 +177,7 @@ function stepColor(step: StepInfo): string {
       ? "text-emerald-400"
       : "text-red-400";
   }
-  if (step.status === "in_progress") return "text-amber";
+  if (step.status === "in_progress") return "text-primary";
   return "text-muted";
 }
 
@@ -213,7 +213,7 @@ function FeedbackModal({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
-          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none resize-none"
+          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none resize-none"
           placeholder={
             isNegative
               ? "e.g. Too expensive, wrong geography, bad industry fit..."
@@ -234,7 +234,7 @@ function FeedbackModal({
           </button>
           <button
             onClick={() => onSubmit(reason)}
-            className="rounded-md bg-amber px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover transition-colors"
           >
             Submit
           </button>
@@ -259,7 +259,7 @@ function ScraperPanel({
   const isFailed = isDone && status.conclusion !== "success";
 
   const borderColor = isActive
-    ? "border-amber/40"
+    ? "border-primary/40"
     : isSuccess
       ? "border-emerald-500/40"
       : isFailed
@@ -267,7 +267,7 @@ function ScraperPanel({
         : "border-border";
 
   const bgColor = isActive
-    ? "bg-amber/5"
+    ? "bg-primary/5"
     : isSuccess
       ? "bg-emerald-500/5"
       : isFailed
@@ -277,7 +277,7 @@ function ScraperPanel({
   const progress = status.progress ?? 0;
 
   const barColor = isActive
-    ? "bg-amber"
+    ? "bg-primary"
     : isSuccess
       ? "bg-emerald-500"
       : "bg-red-500";
@@ -303,7 +303,7 @@ function ScraperPanel({
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
               isActive
-                ? "bg-amber/20 text-amber"
+                ? "bg-primary/20 text-primary"
                 : isSuccess
                   ? "bg-emerald-500/20 text-emerald-400"
                   : "bg-red-500/20 text-red-400"
@@ -566,7 +566,7 @@ export default function PipelinePage() {
           <button
             onClick={runScraper}
             disabled={scraping}
-            className="rounded-lg bg-amber px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-50"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
           >
             {scraping ? "Triggering..." : "Run Scraper"}
           </button>
@@ -599,7 +599,7 @@ export default function PipelinePage() {
           No scraper runs found yet. Click &quot;Run Scraper&quot; to start one.
           <button
             onClick={() => setShowPanel(false)}
-            className="ml-3 text-foreground hover:text-amber transition-colors"
+            className="ml-3 text-foreground hover:text-primary transition-colors"
           >
             Dismiss
           </button>
@@ -635,7 +635,7 @@ export default function PipelinePage() {
                     href={deal.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-semibold text-foreground hover:text-amber transition-colors"
+                    className="font-semibold text-foreground hover:text-primary transition-colors"
                   >
                     {deal.title}
                   </a>
@@ -731,8 +731,8 @@ export default function PipelinePage() {
 
       {/* Diagnostic banner — shows why live data isn't loading */}
       {!usingLive && !dealsLoading && (
-        <div className="mt-4 rounded-lg border border-amber/30 bg-amber/5 p-4 text-sm">
-          <p className="font-medium text-amber mb-2">Showing sample data</p>
+        <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+          <p className="font-medium text-primary mb-2">Showing sample data</p>
           {dealsError ? (
             <p className="text-red-400 font-mono text-xs mb-2">{dealsError}</p>
           ) : (

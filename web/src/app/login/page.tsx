@@ -46,13 +46,13 @@ export default function LoginPage() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none";
+    "w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none";
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-amber tracking-wide">
+          <h1 className="text-2xl font-bold text-primary tracking-wide">
             DEAL HUNTER
           </h1>
           <p className="text-sm text-muted mt-2">
@@ -114,7 +114,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-amber px-4 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
           >
             {loading
               ? "Please wait..."
@@ -132,7 +132,7 @@ export default function LoginPage() {
               setIsRegister(!isRegister);
               setError(null);
             }}
-            className="text-amber hover:text-amber-400 transition-colors font-medium"
+            className="text-primary hover:text-primary-hover transition-colors font-medium"
           >
             {isRegister ? "Sign in" : "Create one"}
           </button>

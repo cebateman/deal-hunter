@@ -31,7 +31,7 @@ export default function RootLayout({
       <body className="antialiased bg-background text-foreground">
         <nav className="border-b border-border bg-surface">
           <div className="mx-auto flex max-w-7xl items-center gap-8 px-6 py-3">
-            <Link href="/pipeline" className="text-lg font-bold text-amber tracking-wide">
+            <Link href="/pipeline" className="text-lg font-bold text-primary tracking-wide">
               DEAL HUNTER
             </Link>
             <div className="flex gap-6">

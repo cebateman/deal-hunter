@@ -106,7 +106,7 @@ export default function SourcesPage() {
         </div>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="rounded-lg bg-amber px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover transition-colors"
         >
           {showAdd ? "Cancel" : "+ Add Source"}
         </button>
@@ -124,7 +124,7 @@ export default function SourcesPage() {
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
               placeholder="e.g. Sunbelt Business Brokers"
             />
           </div>
@@ -135,7 +135,7 @@ export default function SourcesPage() {
               type="url"
               value={form.url}
               onChange={(e) => setForm({ ...form, url: e.target.value })}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
               placeholder="https://example.com/listings"
             />
           </div>
@@ -144,7 +144,7 @@ export default function SourcesPage() {
             <select
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as "marketplace" | "broker" })}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-amber focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
             >
               <option value="marketplace">Marketplace</option>
               <option value="broker">Broker</option>
@@ -157,7 +157,7 @@ export default function SourcesPage() {
               onChange={(e) =>
                 setForm({ ...form, priority: e.target.value as "P0" | "P1" | "P2" | "P3" })
               }
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-amber focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
             >
               <option value="P0">P0 - Primary</option>
               <option value="P1">P1 - Weekly</option>
@@ -170,7 +170,7 @@ export default function SourcesPage() {
             <input
               value={form.region}
               onChange={(e) => setForm({ ...form, region: e.target.value })}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
               placeholder="e.g. National, Texas, Southeast"
             />
           </div>
@@ -179,7 +179,7 @@ export default function SourcesPage() {
             <input
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
               placeholder="Any scraping notes..."
             />
           </div>
@@ -189,7 +189,7 @@ export default function SourcesPage() {
                 type="checkbox"
                 checked={form.requires_js}
                 onChange={(e) => setForm({ ...form, requires_js: e.target.checked })}
-                className="accent-amber"
+                className="accent-primary"
               />
               Requires JavaScript
             </label>
@@ -198,7 +198,7 @@ export default function SourcesPage() {
                 type="checkbox"
                 checked={form.requires_login}
                 onChange={(e) => setForm({ ...form, requires_login: e.target.checked })}
-                className="accent-amber"
+                className="accent-primary"
               />
               Requires Login / NDA
             </label>
@@ -207,7 +207,7 @@ export default function SourcesPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-amber px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition-colors disabled:opacity-50"
+              className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               {saving ? "Adding..." : "Add Source"}
             </button>
@@ -262,7 +262,7 @@ export default function SourcesPage() {
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-foreground hover:text-amber transition-colors"
+                      className="font-medium text-foreground hover:text-primary transition-colors"
                     >
                       {source.name}
                     </a>
@@ -291,7 +291,7 @@ export default function SourcesPage() {
                   <td className="px-4 py-3 text-muted">{source.region || "—"}</td>
                   <td className="px-4 py-3 text-center">
                     {source.requires_js ? (
-                      <span className="text-amber" title="Requires Playwright">
+                      <span className="text-amber-400" title="Requires Playwright">
                         JS
                       </span>
                     ) : (
