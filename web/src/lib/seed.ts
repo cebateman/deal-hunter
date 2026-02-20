@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { getDb, initSchema } from "./db";
 
 type SeedSource = {
   name: string;
@@ -257,32 +257,17 @@ const SOURCES: SeedSource[] = [
   },
 ];
 
-export function seedSources() {
-  const db = getDb();
+export async function seedSources() {
+  const sql = getDb();
+  await initSchema();
 
-  const count = db.prepare("SELECT COUNT(*) as n FROM sources").get() as {
-    n: number;
-  };
-  if (count.n > 0) return; // already seeded
+  const result = await sql`SELECT COUNT(*) as n FROM sources`;
+  if (Number(result[0].n) > 0) return; // already seeded
 
-  const insert = db.prepare(`
-    INSERT INTO sources (name, url, type, priority, region, notes, requires_js, requires_login)
-    VALUES (@name, @url, @type, @priority, @region, @notes, @requires_js, @requires_login)
-  `);
-
-  const tx = db.transaction(() => {
-    for (const s of SOURCES) {
-      insert.run({
-        name: s.name,
-        url: s.url,
-        type: s.type,
-        priority: s.priority,
-        region: s.region,
-        notes: s.notes,
-        requires_js: s.requires_js ? 1 : 0,
-        requires_login: s.requires_login ? 1 : 0,
-      });
-    }
-  });
-  tx();
+  for (const s of SOURCES) {
+    await sql`
+      INSERT INTO sources (name, url, type, priority, region, notes, requires_js, requires_login)
+      VALUES (${s.name}, ${s.url}, ${s.type}, ${s.priority}, ${s.region}, ${s.notes}, ${s.requires_js}, ${s.requires_login})
+    `;
+  }
 }

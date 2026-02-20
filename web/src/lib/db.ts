@@ -1,38 +1,32 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { neon } from "@neondatabase/serverless";
 
-const DB_PATH = path.join(process.cwd(), "deal_hunter.db");
-
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DB_PATH);
-    _db.pragma("journal_mode = WAL");
-    _db.pragma("foreign_keys = ON");
-    initSchema(_db);
+export function getDb() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL env var is not set. Add your Neon Postgres connection string.");
   }
-  return _db;
+  return neon(url);
 }
 
-function initSchema(db: Database.Database) {
-  db.exec(`
+export async function initSchema() {
+  const sql = getDb();
+  await sql`
     CREATE TABLE IF NOT EXISTS sources (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       url TEXT NOT NULL,
       type TEXT NOT NULL CHECK(type IN ('marketplace', 'broker')),
       priority TEXT NOT NULL DEFAULT 'P1' CHECK(priority IN ('P0', 'P1', 'P2', 'P3')),
       region TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
-      requires_js INTEGER NOT NULL DEFAULT 0,
-      requires_login INTEGER NOT NULL DEFAULT 0,
-      enabled INTEGER NOT NULL DEFAULT 1,
+      requires_js BOOLEAN NOT NULL DEFAULT false,
+      requires_login BOOLEAN NOT NULL DEFAULT false,
+      enabled BOOLEAN NOT NULL DEFAULT true,
       selectors_json TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
-  `);
+  `;
 }
 
 export type Source = {
@@ -43,9 +37,9 @@ export type Source = {
   priority: "P0" | "P1" | "P2" | "P3";
   region: string;
   notes: string;
-  requires_js: number;
-  requires_login: number;
-  enabled: number;
+  requires_js: boolean;
+  requires_login: boolean;
+  enabled: boolean;
   selectors_json: string | null;
   created_at: string;
   updated_at: string;

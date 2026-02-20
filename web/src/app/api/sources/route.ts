@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb, Source } from "@/lib/db";
 import { seedSources } from "@/lib/seed";
 
-export function GET() {
-  const db = getDb();
-  seedSources();
-  const sources = db.prepare("SELECT * FROM sources ORDER BY priority, name").all() as Source[];
+export async function GET() {
+  await seedSources();
+  const sql = getDb();
+  const sources = await sql`SELECT * FROM sources ORDER BY priority, name` as Source[];
   return NextResponse.json(sources);
 }
 
@@ -17,23 +17,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "name, url, and type are required" }, { status: 400 });
   }
 
-  const db = getDb();
-  const result = db
-    .prepare(
-      `INSERT INTO sources (name, url, type, priority, region, notes, requires_js, requires_login)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      name,
-      url,
-      type,
-      priority || "P1",
-      region || "",
-      notes || "",
-      requires_js ? 1 : 0,
-      requires_login ? 1 : 0
-    );
+  const sql = getDb();
+  const rows = await sql`
+    INSERT INTO sources (name, url, type, priority, region, notes, requires_js, requires_login)
+    VALUES (${name}, ${url}, ${type}, ${priority || "P1"}, ${region || ""}, ${notes || ""}, ${!!requires_js}, ${!!requires_login})
+    RETURNING *
+  `;
 
-  const source = db.prepare("SELECT * FROM sources WHERE id = ?").get(result.lastInsertRowid) as Source;
-  return NextResponse.json(source, { status: 201 });
+  return NextResponse.json(rows[0] as Source, { status: 201 });
 }
